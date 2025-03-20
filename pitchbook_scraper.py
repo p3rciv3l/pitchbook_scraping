@@ -7,24 +7,22 @@ from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd
 import time
 
-# --- setup chrome driver with your personal profile ---
+# --- setup chrome driver with a unique automation profile ---
 chrome_options = Options()
 chrome_options.add_argument("--start-maximized")
-# make sure no other chrome windows using your personal profile are open
-chrome_options.add_argument("--user-data-dir=/Users/student/Library/Application Support/Google/Chrome")
-chrome_options.add_argument("--profile-directory=Default")
+# use a unique directory not in use by any other chrome instance
+chrome_options.add_argument("--user-data-dir=/Users/student/Desktop/automation_profile")
+chrome_options.add_argument("--profile-directory=Default")  # adjust if needed
 
-# set the path to your chromedriver binary (using the full path)
 service = Service("/usr/local/bin/chromedriver/chromedriver")
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
-# --- navigate to the new pitchbook url ---
+# --- navigate to the pitchbook url via ezproxy ---
 driver.get("https://my-pitchbook-com.ezproxy.neu.edu/")
-
-print("waiting 45 seconds for you to complete 2fa/login and captcha...")
+print("waiting 45 seconds for you to complete login/2fa/captcha...")
 time.sleep(45)
 
-# wait up to 90 seconds for the table rows to appear (indicating that the page has loaded)
+# wait up to 90 seconds for the table rows to appear
 try:
     WebDriverWait(driver, 90).until(
         EC.presence_of_element_located((By.CSS_SELECTOR, "div.data-table__row"))
@@ -77,7 +75,7 @@ while True:
             print("next button disabled, no more pages.")
             break
         next_button.click()
-        print("clicked next, waiting for new page to load...")
+        print("clicked Next, waiting for new page to load...")
         WebDriverWait(driver, 90).until(EC.staleness_of(rows[0]))
         WebDriverWait(driver, 90).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "div.data-table__row"))
