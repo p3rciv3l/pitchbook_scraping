@@ -2,39 +2,52 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd
 import time
 
 # --- setup chrome driver with your personal profile ---
 chrome_options = Options()
 chrome_options.add_argument("--start-maximized")
-# point to your personal chrome profile directory (adjust the path if needed)
+# make sure no other chrome windows using your personal profile are open
 chrome_options.add_argument("--user-data-dir=/Users/student/Library/Application Support/Google/Chrome")
-chrome_options.add_argument("--profile-directory=Default")  # change if using a different profile
+chrome_options.add_argument("--profile-directory=Default")
 
-# use the chromedriver binary path (update if you moved it)
+# set the path to your chromedriver binary (using the full path)
 service = Service("/usr/local/bin/chromedriver/chromedriver")
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
-# --- navigate directly to the pitchbook companies search page ---
-driver.get("https://my.pitchbook.com/search-results/s526028836/companies")
-time.sleep(10)  # wait for the page to load; adjust as needed
+# --- navigate to the new pitchbook url ---
+driver.get("https://my-pitchbook-com.ezproxy.neu.edu/")
+
+print("waiting 45 seconds for you to complete 2fa/login and captcha...")
+time.sleep(45)
+
+# wait up to 90 seconds for the table rows to appear (indicating that the page has loaded)
+try:
+    WebDriverWait(driver, 90).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "div.data-table__row"))
+    )
+    print("table loaded successfully.")
+except Exception as e:
+    print("error: timed out waiting for table rows to load:", e)
+    driver.quit()
+    exit()
 
 all_data = []
 
 # --- start scraping loop ---
 while True:
     print("scraping current page...")
-    # adjust the selector based on your page's structure
     rows = driver.find_elements(By.CSS_SELECTOR, "div.data-table__row")
-    print("found", len(rows), "rows")
+    print("found", len(rows), "rows on current page.")
     
     for row in rows:
         try:
             cells = row.find_elements(By.CSS_SELECTOR, "div.custom-cell-format")
-            # ensure there are enough cells in the row (11 fields needed)
             if len(cells) < 11:
-                print("skipping row, not enough cells")
+                print("skipping row, not enough cells.")
                 continue
 
             company = cells[0].text
@@ -59,15 +72,19 @@ while True:
     
     # --- pagination: click the next button ---
     try:
-        next_btn = driver.find_element(By.CSS_SELECTOR, "button[aria-label='Next']")
-        if "disabled" in next_btn.get_attribute("class"):
-            print("no more pages - next button disabled")
+        next_button = driver.find_element(By.CSS_SELECTOR, "button[aria-label='Next']")
+        if "disabled" in next_button.get_attribute("class"):
+            print("next button disabled, no more pages.")
             break
-        next_btn.click()
-        print("clicked next, waiting for page to load...")
-        time.sleep(10)
+        next_button.click()
+        print("clicked next, waiting for new page to load...")
+        WebDriverWait(driver, 90).until(EC.staleness_of(rows[0]))
+        WebDriverWait(driver, 90).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div.data-table__row"))
+        )
+        time.sleep(5)
     except Exception as e:
-        print("could not find next button or error clicking it:", e)
+        print("error during pagination or no next button found:", e)
         break
 
 # --- save data to csv ---
@@ -79,6 +96,6 @@ columns = [
 ]
 df = pd.DataFrame(all_data, columns=columns)
 df.to_csv("pitchbook_data.csv", index=False)
-print("scraping complete. data saved to pitchbook_data.csv")
+print("scraping complete. data saved to pitchbook_data.csv.")
 
 driver.quit()
