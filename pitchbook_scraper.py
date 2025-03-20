@@ -6,21 +6,36 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd
 import time
+import random
+from selenium_stealth import stealth
 
-# --- setup chrome driver with a unique automation profile ---
+# --- setup chrome driver with a dedicated automation profile ---
 chrome_options = Options()
 chrome_options.add_argument("--start-maximized")
-# use a unique directory not in use by any other chrome instance
+# use a dedicated automation profile directory to avoid conflicts
 chrome_options.add_argument("--user-data-dir=/Users/student/Desktop/automation_profile")
-chrome_options.add_argument("--profile-directory=Default")  # adjust if needed
+chrome_options.add_argument("--profile-directory=Default")
+# set user-agent to match your regular browser
+user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.118 Safari/537.36"
+chrome_options.add_argument(f"user-agent={user_agent}")
 
 service = Service("/usr/local/bin/chromedriver/chromedriver")
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
-# --- navigate to the pitchbook url via ezproxy ---
+# apply stealth settings
+stealth(driver,
+        languages=["en-US", "en"],
+        vendor="Google Inc.",
+        platform="MacIntel",
+        webgl_vendor="Intel Inc.",
+        renderer="Intel Iris OpenGL Engine",
+        fix_hairline=True,
+)
+
+# --- navigate to the pitchbook ezproxy url ---
 driver.get("https://my-pitchbook-com.ezproxy.neu.edu/")
-print("waiting 45 seconds for you to complete login/2fa/captcha...")
-time.sleep(45)
+print("waiting 75 seconds for you to complete login/2fa/captcha...")
+time.sleep(75)  # adjust if you need more time
 
 # wait up to 90 seconds for the table rows to appear
 try:
@@ -65,6 +80,8 @@ while True:
                 contact_email, total_raised, revenue, last_financing_date,
                 last_financing_size, last_financing_type
             ])
+            # add a random delay between scraping rows
+            time.sleep(random.uniform(0.5, 1.5))
         except Exception as e:
             print("error processing a row:", e)
     
@@ -80,7 +97,8 @@ while True:
         WebDriverWait(driver, 90).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "div.data-table__row"))
         )
-        time.sleep(5)
+        # add a random delay after pagination
+        time.sleep(random.uniform(3, 6))
     except Exception as e:
         print("error during pagination or no next button found:", e)
         break
